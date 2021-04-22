@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="0759a390-9310-426b-992e-a20438e701bd" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="804d57fd-cbc4-4efc-a9e5-a3b0c0f5d65e" >
+		<http:request-connection protocol="HTTPS" host="mws.amazonservices.com" port="443" />
+	</http:request-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="d5285b97-1eba-42eb-acfb-986cef5a6c52" file="mule-properties.yaml" />
+	<flow name="amazon-mws-example-mule4Flow" doc:id="bf875804-8601-402d-bd44-5ad33140b00a" >
+		<http:listener doc:name="/orders" doc:id="0eb0fd10-3eae-477f-8e0d-53466f000530" config-ref="HTTP_Listener_config" path="/orders"/>
+		<set-variable value="#[p('aws.id')]" doc:name="AWSAccessKeyId" doc:id="7de29c17-6f4e-4a54-9774-70baed01d6c8" variableName="AWSAccessKeyId"/>
+		<set-variable value="#[p('aws.secret_key')]" doc:name="AWSSecretKey" doc:id="9b29cd6f-da65-46ac-887a-02988d01c963" variableName="AWSSecretKey"/>
+		<set-variable value="#[p('aws.mws.sellerId')]" doc:name="SellerId" doc:id="7eaa0a7d-0551-4c79-97b2-b2f0c214141b" variableName="SellerId"/>
+		<set-variable value="#[p('aws.mws.authToken')]" doc:name="MWSAuthToken" doc:id="1f1d1219-16fd-4693-9a4b-9248b9c30453" variableName="MWSAuthToken"/>
+		<set-variable value="#[p('aws.mws.marketplaceId1')]" doc:name="MarketplaceId.Id.1" doc:id="9d3db08a-edc7-4a12-bc08-e8113ad86157" variableName="marketplaceId1"/>
+		<set-variable value="#[output text/plain --- (now() &gt;&gt; &quot;UTC&quot;) as DateTime {format:&quot;yyyy-MM-dd'T'HH:mm:ss'Z'&quot;}]" doc:name="timestamp" doc:id="85b7a27a-552c-44b5-86d6-740f14da551b" variableName="timestamp"/>
+		<java:new constructor="AWSSignatureV2()" doc:name="New" doc:id="293ea32b-d8a9-4ffa-a653-7448f6c1a2c4" class="com.dejim.AWSSignatureV2"/>
+		<java:invoke method="generateSignature(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String)" doc:name="Invoke" doc:id="ebdc2565-bcac-48d6-84c4-5cf90c793202" class="com.dejim.AWSSignatureV2" instance="#[payload]">
+			<java:args ><![CDATA[#[output application/java
+---
+{
+	awsId: vars.AWSAccessKeyId,
+	awsSecret: vars.AWSSecretKey,
+	MWSAuthToken: vars.MWSAuthToken,
+	sellerId: vars.SellerId,
+	marketPlaceId1: vars.marketplaceId1,
+	timestamp: vars.timestamp as String
+}]]]></java:args>
+		</java:invoke>
+		<http:request method="POST" doc:name="Request" doc:id="db10724a-6b03-49be-a992-d1eb4df53764" config-ref="HTTP_Request_configuration" path="/Orders/2013-09-01" sendCorrelationId="NEVER">
+			<http:body ><![CDATA[#[output application/x-www-form-urlencoded 
+---
+{
+	"AWSAccessKeyId" : vars.AWSAccessKeyId,
+	"MWSAuthToken" : vars.MWSAuthToken,	
+	"SellerId" : vars.SellerId,
+	"Signature" : payload,
+	"Action" : "ListOrders",
+	"SignatureVersion" : "2",
+	"SignatureMethod" : "HmacSHA256",
+	"Timestamp" : vars.timestamp,
+	"MarketplaceId.Id.1" : vars.marketplaceId1,
+	"CreatedAfter" : "2021-04-21T05:00:00Z",
+	"Version" : "2013-09-01"
+}]]]></http:body>
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Host" : "mws.amazonservices.com",
+	"Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
+	"X-Requested-With" : "XMLHttpRequest"
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="4a78a440-73bf-48c8-8bd8-fbc4c199e655" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

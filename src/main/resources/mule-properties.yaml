@@ -1,0 +1,7 @@
+aws:
+  id: ""
+  secret_key: ""
+  mws:
+    authToken: ""
+    sellerId: ""
+    marketplaceId1: ""

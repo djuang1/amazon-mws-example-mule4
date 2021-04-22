@@ -1,0 +1,8 @@
+{
+  "sampleData": {
+    "db10724a-6b03-49be-a992-d1eb4df53764": {
+      "payload": "sample_data/defaultstringtype.dwl",
+      "vars-timestamp": "sample_data/defaultdatetimetype.json"
+    }
+  }
+}
